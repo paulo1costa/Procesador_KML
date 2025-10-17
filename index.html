@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Processador KML</title>
+  <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    }
+    
+    body {
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    h1 {
+      font-size: 28px;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 16px;
+    }
+    
+    .upload-area {
+      border: 2px dashed #4f46e5;
+      border-radius: 8px;
+      padding: 40px;
+      text-align: center;
+      background: #f8f9ff;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-bottom: 20px;
+    }
+    
+    .upload-area:hover {
+      background: #eef0ff;
+      border-color: #4338ca;
+    }
+    
+    .upload-area p {
+      font-size: 16px;
+      color: #333;
+      margin-bottom: 15px;
+    }
+    
+    .upload-area small {
+      color: #666;
+      font-size: 14px;
+    }
+    
+    .file-counter {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 20px 0;
+      text-align: center;
+    }
+    
+    .file-counter p {
+      font-size: 16px;
+      color: #0369a1;
+      font-weight: 600;
+    }
+    
+    .file-counter button {
+      margin-top: 10px;
+      background: #ef4444;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    
+    .file-counter button:hover {
+      background: #dc2626;
+    }
+    
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn-primary {
+      background: #4f46e5;
+      color: white;
+    }
+    
+    .btn-primary:hover:not(:disabled) {
+      background: #4338ca;
+    }
+    
+    .btn-primary:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+    
+    .btn-success {
+      background: #10b981;
+      color: white;
+    }
+    
+    .btn-success:hover {
+      background: #059669;
+    }
+    
+    .alert {
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+      font-size: 15px;
+    }
+    
+    .alert-error {
+      background: #fee;
+      color: #c00;
+      border: 1px solid #fcc;
+    }
+    
+    .alert-info {
+      background: #eff6ff;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+    }
+    
+    .alert-success {
+      background: #f0fdf4;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+    
+    .buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    
+    .buttons button {
+      flex: 1;
+    }
+    
+    .result-box {
+      margin-top: 20px;
+      padding: 20px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+    }
+    
+    .result-box h3 {
+      font-size: 18px;
+      color: #166534;
+      margin-bottom: 10px;
+    }
+    
+    .result-box p {
+      font-size: 16px;
+      color: #166534;
+      margin-bottom: 15px;
+    }
+    
+    details {
+      margin-top: 15px;
+    }
+    
+    summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: #166534;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+    
+    pre {
+      background: white;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 12px;
+      border: 1px solid #bbf7d0;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState } = React;
+
+    function KMLProcessor() {
+      const [files, setFiles] = useState([]);
+      const [processing, setProcessing] = useState(false);
+      const [result, setResult] = useState(null);
+      const [error, setError] = useState('');
+      const [progress, setProgress] = useState('');
+
+      const handleDragDrop = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const droppedFiles = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.kml'));
+        setFiles(prev => [...prev, ...droppedFiles]);
+        setError('');
+      };
+
+      const handleFileInput = (e) => {
+        const selectedFiles = Array.from(e.target.files).filter(f => f.name.endsWith('.kml'));
+        setFiles(prev => [...prev, ...selectedFiles]);
+        setError('');
+      };
+
+      const clearAllFiles = () => {
+        setFiles([]);
+        setError('');
+        setResult(null);
+        setProgress('');
+      };
+
+      const parseKML = (xmlString) => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xmlString, 'text/xml');
+        const features = [];
+        const placemarks = doc.querySelectorAll('Placemark');
+
+        placemarks.forEach(pm => {
+          const data = {};
+          const nameEl = pm.querySelector('name');
+          data.name = nameEl ? nameEl.textContent.trim() : '';
+
+          const extData = pm.querySelector('ExtendedData');
+          if (extData) {
+            extData.querySelectorAll('Data').forEach(d => {
+              const key = d.getAttribute('name');
+              const value = d.querySelector('value');
+              if (key && value) {
+                data[key] = value.textContent.trim();
+              }
+            });
+          }
+
+          const coordsEl = pm.querySelector('coordinates');
+          if (coordsEl) {
+            const coordsText = coordsEl.textContent.trim();
+            const coords = coordsText.split(/\s+/).map(coord => {
+              const parts = coord.split(',');
+              if (parts.length >= 2) {
+                return [parseFloat(parts[0]), parseFloat(parts[1])];
+              }
+              return null;
+            }).filter(c => c);
+
+            if (coords.length === 1) {
+              data.geometry = { type: 'Point', coordinates: coords[0] };
+            } else if (coords.length > 1) {
+              data.geometry = { type: 'LineString', coordinates: coords };
+            }
+
+            if (data.geometry) {
+              features.push(data);
+            }
+          }
+        });
+
+        return features;
+      };
+
+      const extractDateFromFilename = (filename) => {
+        const match = filename.match(/_(\d{8})/);
+        if (match) {
+          const dateStr = match[1];
+          const year = dateStr.substring(0, 4);
+          const month = dateStr.substring(4, 6);
+          const day = dateStr.substring(6, 8);
+          return `${day}/${month}/${year}`;
+        }
+        return null;
+      };
+
+      const processFiles = async () => {
+        if (files.length === 0) {
+          setError('Selecione pelo menos um arquivo KML');
+          return;
+        }
+
+        setProcessing(true);
+        setError('');
+        setProgress('');
+
+        try {
+          let allFeatures = [];
+
+          for (let i = 0; i < files.length; i++) {
+            setProgress(`Processando arquivo ${i + 1}/${files.length}: ${files[i].name}`);
+            const text = await files[i].text();
+            const features = parseKML(text);
+
+            features.forEach(f => {
+              const props = {};
+              Object.keys(f).forEach(key => {
+                if (key !== 'geometry') {
+                  props[key] = f[key];
+                }
+              });
+              props.source_file = files[i].name;
+
+              allFeatures.push({
+                geometry: f.geometry,
+                properties: props
+              });
+            });
+          }
+
+          setProgress('Transformando dados...');
+          const processedFeatures = [];
+
+          allFeatures.forEach(feature => {
+            const props = { ...feature.properties };
+
+            if (props['Flight Time']) {
+              const hours = (parseFloat(props['Flight Time']) / 1000 / 3600).toFixed(3);
+              props['Flight Time'] = parseFloat(hours);
+            }
+
+            if (props['Height'] !== undefined) {
+              props['Altura (m)'] = parseFloat(parseFloat(props['Height']).toFixed(3));
+              delete props['Height'];
+            }
+
+            if (props['Route Spacing'] !== undefined) {
+              props['Espaçamento (m)'] = parseFloat(parseFloat(props['Route Spacing']).toFixed(3));
+              delete props['Route Spacing'];
+            }
+
+            if (props['Task Flight Speed'] !== undefined) {
+              const kmh = (parseFloat(props['Task Flight Speed']) * 3.6).toFixed(3);
+              props['Velocidade (Km/h)'] = parseFloat(kmh);
+              delete props['Task Flight Speed'];
+            }
+
+            if (props['Task Area'] !== undefined) {
+              props['Area (Ha)'] = parseFloat(parseFloat(props['Task Area']).toFixed(3));
+              delete props['Task Area'];
+            }
+
+            if (props['Spray amount'] !== undefined) {
+              const liters = (parseFloat(props['Spray amount']) / 1000).toFixed(3);
+              props['Total Pulverizado (L)'] = parseFloat(liters);
+              delete props['Spray amount'];
+            }
+
+            if (props['Total Pulverizado (L)'] && props['Area (Ha)']) {
+              const rate = (props['Total Pulverizado (L)'] / props['Area (Ha)']).toFixed(3);
+              props['Taxa de aplicação (L/Ha)'] = parseFloat(rate);
+            }
+
+            if (props['source_file']) {
+              const date = extractDateFromFilename(props['source_file']);
+              if (date) {
+                props['Data'] = date;
+              }
+            }
+
+            processedFeatures.push({
+              type: 'Feature',
+              geometry: feature.geometry,
+              properties: props
+            });
+          });
+
+          const geojson = {
+            type: 'FeatureCollection',
+            features: processedFeatures
+          };
+
+          setResult(geojson);
+          setProgress(`✓ ${processedFeatures.length} features processadas com sucesso!`);
+        } catch (err) {
+          setError(`Erro ao processar: ${err.message}`);
+          setProgress('');
+        } finally {
+          setProcessing(false);
+        }
+      };
+
+      const downloadGeoJSON = () => {
+        const json = JSON.stringify(result, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'resultado_processado.geojson';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+
+      return (
+        <div className="container">
+          <h1>Processador KML → GeoJSON</h1>
+          <p className="subtitle">Converta arquivos KML em GeoJSON processado</p>
+
+          <div
+            className="upload-area"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDragDrop}
+            onClick={() => document.getElementById('file-input').click()}
+          >
+            <p><strong>Arraste arquivos KML aqui ou clique para selecionar</strong></p>
+            <small>Suporta múltiplos arquivos</small>
+            <input
+              type="file"
+              multiple
+              accept=".kml"
+              onChange={handleFileInput}
+              style={{ display: 'none' }}
+              id="file-input"
+            />
+          </div>
+
+          {files.length > 0 && (
+            <div className="file-counter">
+              <p>📁 {files.length} arquivo{files.length > 1 ? 's' : ''} selecionado{files.length > 1 ? 's' : ''}</p>
+              <button onClick={clearAllFiles}>Limpar todos</button>
+            </div>
+          )}
+
+          {error && (
+            <div className="alert alert-error">
+              <strong>Erro:</strong> {error}
+            </div>
+          )}
+
+          {progress && (
+            <div className="alert alert-info">
+              {progress}
+            </div>
+          )}
+
+          <div className="buttons">
+            <button
+              className="btn btn-primary"
+              onClick={processFiles}
+              disabled={processing || files.length === 0}
+            >
+              {processing ? 'Processando...' : 'Processar Arquivos'}
+            </button>
+
+            {result && (
+              <button className="btn btn-success" onClick={downloadGeoJSON}>
+                Baixar GeoJSON
+              </button>
+            )}
+          </div>
+
+          {result && (
+            <div className="result-box">
+              <h3>✓ Processamento Concluído!</h3>
+              <p>
+                <strong>{result.features.length}</strong> features extraídas com sucesso
+              </p>
+              <details>
+                <summary>Ver exemplo de dados processados</summary>
+                <pre>{JSON.stringify(result.features[0], null, 2)}</pre>
+              </details>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<KMLProcessor />);
+  </script>
+</body>
+</html>
