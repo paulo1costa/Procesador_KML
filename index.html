@@ -329,14 +329,14 @@
             
             // Processar Route Spacing
             if (props['Route Spacing'] !== undefined) {
-              props['Espaçamento (m)'] = parseFloat(parseFloat(props['Route Spacing']).toFixed(3));
+              props['Faixa (m)'] = parseFloat(parseFloat(props['Route Spacing']).toFixed(3));
               delete props['Route Spacing'];
             }
             
             // Processar Task Flight Speed
             if (props['Task Flight Speed'] !== undefined) {
               const kmh = (parseFloat(props['Task Flight Speed']) * 3.6).toFixed(3);
-              props['Velocidade (Km/h)'] = parseFloat(kmh);
+              props['Vel (Km/h)'] = parseFloat(kmh);
               delete props['Task Flight Speed'];
             }
             
@@ -356,7 +356,7 @@
             // Calcular Taxa de aplicação
             if (props['Total Pulverizado (L)'] && props['Area (Ha)']) {
               const rate = (props['Total Pulverizado (L)'] / props['Area (Ha)']).toFixed(3);
-              props['Taxa de aplicação (L/Ha)'] = parseFloat(rate);
+              props['Tx (l/ha)'] = parseFloat(rate);
             }
             
             // *** APENAS UMA COLUNA Data EM FORMATO ISO ***
