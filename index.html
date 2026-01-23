@@ -257,20 +257,35 @@
         return features;
       };
 
-      // Função que retorna APENAS o formato ISO
-      const extractDateFromFilename = (filename) => {
-        const match = filename.match(/_(\d{8})/);
+      const extractDateTimeFromFilename = (filename) => {
+        // Padrão: YYYYMMDD_YYYYMMDDHHMMSS
+        // Exemplo: LGS_T50_EMF_021324_20260115192447_R3338719306.kml
+        const match = filename.match(/_(\d{8})(\d{6})_/);
         if (match) {
-          const dateStr = match[1];
-          const year = dateStr.substring(0, 4);
-          const month = dateStr.substring(4, 6);
-          const day = dateStr.substring(6, 8);
+          const dateStr = match[1]; // YYYYMMDD
+          const timeStr = match[2]; // HHMMSS
           
-          const date = new Date(year, month - 1, day);
+          const year = parseInt(dateStr.substring(0, 4));
+          const month = parseInt(dateStr.substring(4, 6)) - 1; // Mês começa em 0
+          const day = parseInt(dateStr.substring(6, 8));
           
-          if (!isNaN(date.getTime())) {
-            // Retorna apenas formato ISO YYYY-MM-DD
-            return date.toISOString().split('T')[0];
+          const hour = parseInt(timeStr.substring(0, 2));
+          const minute = parseInt(timeStr.substring(2, 4));
+          const second = parseInt(timeStr.substring(4, 6));
+          
+          // Criar data/hora no fuso UTC+11
+          const dateUTC11 = new Date(Date.UTC(year, month, day, hour, minute, second));
+          
+          // Subtrair 11 horas para corrigir o fuso horário
+          const correctedDate = new Date(dateUTC11.getTime() - (11 * 60 * 60 * 1000));
+          
+          if (!isNaN(correctedDate.getTime())) {
+            // Retornar objeto com data e hora separadas
+            const isoString = correctedDate.toISOString();
+            return {
+              data: isoString.split('T')[0], // YYYY-MM-DD
+              hora: isoString.split('T')[1].split('.')[0] // HH:MM:SS
+            };
           }
         }
         return null;
@@ -315,55 +330,48 @@
           allFeatures.forEach(feature => {
             const props = { ...feature.properties };
             
-            // Processar Flight Time
             if (props['Flight Time']) {
               const hours = (parseFloat(props['Flight Time']) / 1000 / 3600).toFixed(3);
               props['Flight Time'] = parseFloat(hours);
             }
             
-            // Processar Height
             if (props['Height'] !== undefined) {
               props['Altura (m)'] = parseFloat(parseFloat(props['Height']).toFixed(3));
               delete props['Height'];
             }
             
-            // Processar Route Spacing
             if (props['Route Spacing'] !== undefined) {
-              props['Faixa (m)'] = parseFloat(parseFloat(props['Route Spacing']).toFixed(3));
+              props['Espaçamento (m)'] = parseFloat(parseFloat(props['Route Spacing']).toFixed(3));
               delete props['Route Spacing'];
             }
             
-            // Processar Task Flight Speed
             if (props['Task Flight Speed'] !== undefined) {
               const kmh = (parseFloat(props['Task Flight Speed']) * 3.6).toFixed(3);
-              props['Vel (Km/h)'] = parseFloat(kmh);
+              props['Velocidade (Km/h)'] = parseFloat(kmh);
               delete props['Task Flight Speed'];
             }
             
-            // Processar Task Area
             if (props['Task Area'] !== undefined) {
               props['Area (Ha)'] = parseFloat(parseFloat(props['Task Area']).toFixed(3));
               delete props['Task Area'];
             }
             
-            // Processar Spray amount
             if (props['Spray amount'] !== undefined) {
               const liters = (parseFloat(props['Spray amount']) / 1000).toFixed(3);
               props['Total Pulverizado (L)'] = parseFloat(liters);
               delete props['Spray amount'];
             }
             
-            // Calcular Taxa de aplicação
             if (props['Total Pulverizado (L)'] && props['Area (Ha)']) {
               const rate = (props['Total Pulverizado (L)'] / props['Area (Ha)']).toFixed(3);
-              props['Tx (l/ha)'] = parseFloat(rate);
+              props['Taxa de aplicação (L/Ha)'] = parseFloat(rate);
             }
             
-            // *** APENAS UMA COLUNA Data EM FORMATO ISO ***
             if (props['source_file']) {
-              const dateISO = extractDateFromFilename(props['source_file']);
-              if (dateISO) {
-                props['Data'] = dateISO;  // Formato YYYY-MM-DD (será datetime64 no pandas)
+              const dateTime = extractDateTimeFromFilename(props['source_file']);
+              if (dateTime) {
+                props['Data'] = dateTime.data;
+                props['Hora'] = dateTime.hora;
               }
             }
             
@@ -471,7 +479,7 @@
                 <strong>{result.features.length}</strong> features extraídas com sucesso
               </p>
               <p style={{fontSize: '14px', marginTop: '10px', color: '#059669'}}>
-                ℹ️ A coluna <strong>Data</strong> está em formato ISO (YYYY-MM-DD) e será automaticamente reconhecida como datetime64 pelo pandas/geopandas
+                ℹ️ As colunas <strong>Data</strong> (YYYY-MM-DD) e <strong>Hora</strong> (HH:MM:SS) foram extraídas e corrigidas do fuso horário UTC+11
               </p>
               <details>
                 <summary>Ver exemplo de dados processados</summary>
